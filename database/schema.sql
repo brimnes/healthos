@@ -1,8 +1,6 @@
 -- Personal Health OS database schema for PostgreSQL / Timeweb.
 -- Run this in Timeweb's SQL console or with psql after creating the database.
 
-create extension if not exists pgcrypto;
-
 create table if not exists app_users (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,

@@ -5,7 +5,7 @@ let pool: Pool | undefined;
 
 function getConnectionString() {
   if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
+    return normalizeConnectionString(process.env.DATABASE_URL);
   }
 
   const host = process.env.DB_HOST;
@@ -21,6 +21,15 @@ function getConnectionString() {
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 }
 
+function normalizeConnectionString(connectionString: string) {
+  const url = new URL(connectionString);
+  url.searchParams.set("sslmode", process.env.DB_SSL === "false" ? "disable" : "no-verify");
+  url.searchParams.delete("sslcert");
+  url.searchParams.delete("sslkey");
+  url.searchParams.delete("sslrootcert");
+  return url.toString();
+}
+
 export function getDb() {
   if (pool) return pool;
 
@@ -31,7 +40,9 @@ export function getDb() {
 
   pool = new Pool({
     connectionString,
-    ssl: process.env.DB_SSL === "false" ? false : { rejectUnauthorized: false }
+    ssl: process.env.DATABASE_URL ? undefined : process.env.DB_SSL === "false" ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10_000,
+    query_timeout: 30_000
   });
 
   return pool;

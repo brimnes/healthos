@@ -18,7 +18,7 @@ function getConnectionString() {
       throw new Error("DATABASE_URL still contains placeholder values. Paste the real Timeweb connection string into .env.local.");
     }
 
-    return process.env.DATABASE_URL;
+    return normalizeConnectionString(process.env.DATABASE_URL);
   }
 
   const host = process.env.DB_HOST;
@@ -34,18 +34,29 @@ function getConnectionString() {
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 }
 
+function normalizeConnectionString(connectionString) {
+  const url = new URL(connectionString);
+  url.searchParams.set("sslmode", process.env.DB_SSL === "false" ? "disable" : "no-verify");
+  url.searchParams.delete("sslcert");
+  url.searchParams.delete("sslkey");
+  url.searchParams.delete("sslrootcert");
+  return url.toString();
+}
+
 loadEnvFile(".env.local");
 
 const sql = fs.readFileSync("database/schema.sql", "utf8");
+const statements = splitSqlStatements(sql);
 let client;
 
 try {
   client = new Client({
-    connectionString: getConnectionString(),
-    ssl: process.env.DB_SSL === "false" ? false : { rejectUnauthorized: false }
+    connectionString: getConnectionString()
   });
   await client.connect();
-  await client.query(sql);
+  for (const statement of statements) {
+    await client.query(statement);
+  }
   const result = await client.query("select count(*)::int as count from marker_dictionary");
   console.log("SCHEMA_APPLIED");
   console.log(`marker_dictionary_count=${result.rows[0].count}`);
@@ -54,4 +65,14 @@ try {
   process.exitCode = 1;
 } finally {
   await client?.end().catch(() => {});
+}
+
+function splitSqlStatements(sql) {
+  return sql
+    .split(/\r?\n/)
+    .filter((line) => !line.trim().startsWith("--"))
+    .join("\n")
+    .split(/;\s*(?:\n|$)/)
+    .map((statement) => statement.trim())
+    .filter(Boolean);
 }
