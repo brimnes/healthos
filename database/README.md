@@ -14,3 +14,19 @@ Expected response:
 ```
 
 Do not commit `.env.local`.
+
+## Timeweb App Platform deployment
+
+For a full Next.js app with API routes, deploy this repository using the included `Dockerfile`.
+
+Recommended settings:
+
+- Repository: `https://github.com/brimnes/healthos`
+- Branch: `main`
+- Build mode: Dockerfile
+- Port: `3000`
+- Environment variables:
+  - `DATABASE_URL`
+  - `DB_SSL=true`
+
+The container start command is already defined in `Dockerfile`.
